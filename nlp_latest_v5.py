@@ -80,9 +80,11 @@ class Recipe:
     self.Methods = Methods
     self.Steps = Steps
     self.URL = URL
+    self.primary_cooking_method= None
   
   def print_recipie(self):
     print('NAME OF RECIPIE: ',self.title)
+    print('Primary Cooking Method: ',self.primary_cooking_method)
     print('Required_Tools:',','.join(self.Tools))
     print('Used Methods:',','.join(self.Methods))
     self.print_table_ingredients()
@@ -343,7 +345,11 @@ def get_recipie_from_URL(URL):
     for cooking_method in list_of_cooking_methods:
       if cooking_method in direction_lower or lemmatizer.lemmatize(cooking_method) in direction_lower:
         Cooking_Methods.append(cooking_method)
+      if cooking_method in title_text or lemmatizer.lemmatize(cooking_method) in title_text:
+        myRecipie.primary_cooking_method =  cooking_method
         
+  if (myRecipie.primary_cooking_method == None ) and len(Cooking_Methods)!=0:
+    myRecipie.primary_cooking_method = Cooking_Methods[0]
   myRecipie.Methods = Cooking_Methods
   #----------------------------Methods are ready--------------------------#
 
@@ -411,23 +417,26 @@ def print_choices():
     print('6. Convert current recipie to chinese')
     print('7. Convert current recipie to a cheaper alternative')
     print('0. Exit')
-   
+
+print('Welcome to Interactive Cook Book')   
 choice = -100
 url_choice = 0
+myRecipie = None
 while (True):
-    
-    if choice==-100:
-        print('Welcome to Interactive Cook Book')
-    
-    if choice==0:
-        print('Bye!')
-        break
     
     print('Please enter a choice')
     print_choices()
     choice = int(input())
     
-    if choice==1:
+    if choice not in (1,2) and not myRecipie:
+        print('You havent selected a recipie yet!')
+        continue
+        
+    if choice==0:
+        print('Bye!')
+        break
+    
+    elif choice==1:
         print('Will you give a url, or shall I just take any random recipe?')
         print('Press 1 to enter url or 2 to randomly select')
         url_choice = int(input())
