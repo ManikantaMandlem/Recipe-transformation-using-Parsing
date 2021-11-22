@@ -325,7 +325,7 @@ def get_recipie_from_URL(URL):
         
       elif check_ingredient(Ingredients[i].main_ingredients,direction_lower) or check_ingredient(Ingredients[i].main_ingredients.replace(" ", ""),direction_lower):
         step_indexes.append(j)
-      print('For ingredient',i,'step indexes',step_indexes)
+      
     Ingredients[i].step_indexes = step_indexes
   
   myRecipie.Ingredients = Ingredients
