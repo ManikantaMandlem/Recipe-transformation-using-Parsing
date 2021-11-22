@@ -1,32 +1,32 @@
 bake
-barde
 barbecue
-baste
-blanche
 boil
+barde
+baste
+deep fry
+dry roast
+pressure cook
+pressure fry
+slow cook
+blanche
 braise
 bricolage
 brine
 broast
-brown
 caramelize
 charbroiler
 chiffonade
 coddle
 concasse
 conche
-cream
 croquette
 curdle
 cure
-deep fry
 deglaze
 degrease
 dough sheet
 dredge
-dry roast
 dry
-slow cook
 engastrate
 egg wash
 emulsify
@@ -77,8 +77,6 @@ pickling
 pig roast
 poach
 pre-ferment
-pressure cook
-pressure fry
 proof
 purée
 reconstite
@@ -96,7 +94,6 @@ shrivell
 shuck
 simmer
 skimm
-slow cook
 smoke
 smother
 souring

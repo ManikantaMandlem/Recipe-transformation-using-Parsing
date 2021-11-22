@@ -30,6 +30,7 @@ indian_ingredients_subs_path = main_path + "indian_ingredients_subs.csv"
 cheap_ingredients_subs_path = main_path + "cheap_subs.csv"
 gluten_free_ingredients_subs_path = main_path + "gluten_subs.csv"
 implied_tools_path = main_path + "implied_tools.csv"
+additional_descriptor_file_path = main_path + "list_descriptor.txt"
 
 class Ingredient:
 
@@ -237,10 +238,11 @@ def get_recipie_from_URL(URL):
   page = requests.get(URL)
   soup = BeautifulSoup(page.content, "html.parser")
   title_parse = soup.find_all("h1", class_="headline heading-content elementFont__display")
-  title_text = title_parse[0].text
-  if not isinstance(title_text, str):
-    title_text = title_unicode.encode("ascii", "ignore").translate(None, string.punctuation).strip()
-  myRecipie.title = title_text
+  if len(title_parse)>=1:
+    title_text = title_parse[0].text
+    if not isinstance(title_text, str):
+        title_text = title_unicode.encode("ascii", "ignore").translate(None, string.punctuation).strip()
+        myRecipie.title = title_text
   ingredient_parse = soup.find_all("input", class_="checkbox-list-input")
   direction_parse = soup.find_all("div", class_="paragraph")
   unicode_quantities = []
@@ -254,6 +256,7 @@ def get_recipie_from_URL(URL):
   for step in direction_parse:
     step_text = step.text
     step_text.encode("ascii", "ignore").strip()
+    step_text = step.text.replace('fat free','fat-free')
     directions.append(step_text)
 
   #--------------------------Half Parsed Directions are ready------------------#
@@ -274,39 +277,55 @@ def get_recipie_from_URL(URL):
   units = unicode_units
   ingredients = unicode_ingredients
   quantity_type = unicode_type
-  descriptor  = [None] * len(ingredients)
-  preparation = [None] * len(ingredients)
+  descriptor  = [''] * len(ingredients)
+  preparation = [''] * len(ingredients)
   main_ingredients = [''] * len(ingredients)
 
+  with open(additional_descriptor_file_path) as file:
+     lines = file.readlines()
+     list_of_additional_descriptors = [line.rstrip() for line in lines] 
+  
   def preprocess(sent):
     sent = nltk.word_tokenize(sent)
     sent = nltk.pos_tag(sent)
     return sent
   
   for i in range(len(ingredients)):
+    ingredients[i] = ingredients[i].replace('fat free','fat-free')
     tokens = preprocess(ingredients[i])
     for token in tokens:
-      if token[1] == 'JJ':
-        descriptor[i] = token[0]
-      elif token[1] in ['VBD','VBN']:
-        preparation[i] = token[0]
-      elif token[1] in ['NN','NNS','NNP','NNPS']:
+      if '®' in token[0]:
+        continue
+      elif token[0] in list_of_additional_descriptors:
+        descriptor[i]+= token[0]+' '
+      elif token[1] in ['JJ','JJR','JJS']:
+        descriptor[i]+= token[0]+' '
+      elif token[1] in ['VBN','VBD']:
+        preparation[i]+= token[0]+' '
+      elif token[1] in ['NN','NNS','NNP','NNPS'] or token[0] == 'baking':
         main_ingredients[i] += token[0]+' '
     main_ingredients[i] = main_ingredients[i].rstrip()
-
+    descriptor[i] = descriptor[i].rstrip()
+    preparation[i] = preparation[i].rstrip()
   Ingredients = [0] * len(ingredients)
   for i in range(len(ingredients)):
-    new_ingredient = Ingredient(fullname=ingredients[i],main_ingredients=main_ingredients[i],quantity_type=quantity_type[i],quantity = quantities[i],units=units[i],descriptor=descriptor[i],preparation=preparation[i])
+    new_ingredient = Ingredient(fullname=ingredients[i],main_ingredients=main_ingredients[i],quantity_type=quantity_type[i],quantity = quantities[i],units=units[i],descriptor=','.join(descriptor[i].split()),preparation=','.join(preparation[i].split()))
     Ingredients[i] = new_ingredient
   
   for i in range(len(Ingredients)):
     step_indexes = []
     for j in range(len(directions)):
       direction_lower = directions[j]
-      #if (Ingredients[i].main_ingredients in direction_lower or Ingredients[i].main_ingredients in direction_lower) or Ingredients[i].main_ingredients.replace(" ", "") in direction_lower:
-      #  step_indexes.append(j)
-      if check_ingredient(Ingredients[i].main_ingredients,direction_lower) or check_ingredient(Ingredients[i].main_ingredients.replace(" ", ""),direction_lower):
+      
+      if 'all other ingredients' in direction_lower or 'all ingredients' in direction_lower and len(step_indexes)==0:
+        step_indexes.append(j)    
+        index  = re.search('all other ingredients except|all ingredients except',direction_lower).start()
+        if check_ingredient(Ingredients[i].main_ingredients,direction_lower[index:]) or check_ingredient(Ingredients[i].main_ingredients.replace(" ", ""),direction_lower[index:]):
+            step_indexes.remove(j)
+        
+      elif check_ingredient(Ingredients[i].main_ingredients,direction_lower) or check_ingredient(Ingredients[i].main_ingredients.replace(" ", ""),direction_lower):
         step_indexes.append(j)
+      print('For ingredient',i,'step indexes',step_indexes)
     Ingredients[i].step_indexes = step_indexes
   
   myRecipie.Ingredients = Ingredients
@@ -324,10 +343,10 @@ def get_recipie_from_URL(URL):
   for i in range(len(directions)):
     direction_lower = directions[i]
     for tool in list_of_tools:
-      if tool in direction_lower:
+      if tool in direction_lower and tool not in Tools:
         Tools.append(tool)
     for keyword,implied_tool in df_tools:
-      if keyword.lower() in direction_lower:
+      if keyword.lower() in direction_lower and tool not in Tools:
         Tools.append(implied_tool)
 
   myRecipie.Tools = Tools
@@ -375,8 +394,11 @@ def get_recipie_from_URL(URL):
         step_wise_methods.append(method)
     
     for ingredient in Ingredients:
-      if ingredient.main_ingredients in direction_lower and ingredient.fullname not in step_wise_ingredients :
-        step_wise_ingredients.append(ingredient)
+      #if ingredient.main_ingredients in direction_lower and ingredient.fullname not in step_wise_ingredients :
+      #  step_wise_ingredients.append(ingredient)
+      for index in ingredient.step_indexes:
+        if index==i:
+            step_wise_ingredients.append(ingredient)
     
     time_keywords = ' minutes| seconds| hours| secs| hrs| mins| min'
     if (re.search(time_keywords,direction_lower)):
@@ -394,7 +416,10 @@ def get_recipie_from_URL(URL):
  #----------------------------Directions are ready--------------------------#
 
 def check_ingredient(ingredient,step):
-  if len(ingredient.split())==1:
+  if ingredient.lower() in ['baking powder','baking soda']:
+    if ingredient.lower() in step.lower():
+        return True
+  elif len(ingredient.split())==1:
     if ingredient.lower() in step.lower():
       return True
   else:
@@ -428,7 +453,7 @@ while (True):
     print_choices()
     choice = int(input())
     
-    if choice not in (1,2) and not myRecipie:
+    if choice not in (0,1,8) and not myRecipie:
         print('You havent selected a recipie yet!')
         continue
         
@@ -445,7 +470,10 @@ while (True):
             myRecipie = get_recipie_from_URL(input_url)
             myRecipie.print_recipie()
         elif url_choice == 2:
-            myRecipie = get_recipie_from_URL(URL)
+            random_URL ="http://allrecipes.com/recipe/" + str(random.randint(6660, 27000))
+            #random_URL = 'http://allrecipes.com/recipe/24290'
+            myRecipie = get_recipie_from_URL(random_URL)
+            print(random_URL)
             myRecipie.print_recipie()
         else:
             print('Invalid choice')
@@ -477,71 +505,15 @@ while (True):
         myRecipie.to_cheaper()
         myRecipie.print_recipie()
     
+    elif choice==8:
+        random_URL = 'http://allrecipes.com/recipe/13039'
+        myRecipie = get_recipie_from_URL(random_URL)
+        print(random_URL)
+        myRecipie.print_recipie()
+    
     else:
         print('Invalid choice')
     
          
         
 
-'''
-myRecipie = get_recipie_from_URL('https://www.allrecipes.com/recipe/166160/juicy-thanksgiving-turkey/')
-myRecipie.print_recipie()
-print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
-
-
-print('\n\nHERES A NON VEG RECIPIE')
-myRecipie = get_recipie_from_URL(URL_nonveg)
-myRecipie.print_recipie()
-print('NOW WE WILL TRANSFORM IT TO VEG')
-myRecipie.to_veg()
-myRecipie.print_recipie()
-print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
-
-print('\n\nHERES A NORMAL RECIPIE')
-myRecipie = get_recipie_from_URL(URL)
-myRecipie.print_recipie()
-print('NOW WE WILL DOUBLE THE INGREDIENTS')
-myRecipie.ratio(2)
-myRecipie.print_recipie()
-print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
-
-print('\n\nHERES AN UNHEALTHY RECIPIE')
-myRecipie = get_recipie_from_URL(URL_unhealthy)
-myRecipie.print_recipie()
-print('NOW WE WILL TRANSFORM IT TO HEALTHY')
-myRecipie.to_healthy()
-myRecipie.print_recipie()
-print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
-
-print('\n\nHERES A NORMAL RECIPIE')
-myRecipie = get_recipie_from_URL(URL)
-myRecipie.print_recipie()
-print('NOW WE WILL TRANSFORM IT TO CHINESE')
-myRecipie.to_chinese()
-myRecipie.print_recipie()
-print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
-
-print('\n\nHERES A NORMAL RECIPIE')
-myRecipie = get_recipie_from_URL(URL)
-myRecipie.print_recipie()
-print('NOW WE WILL TRANSFORM IT TO INDIAN')
-myRecipie.to_chinese()
-myRecipie.print_recipie()
-print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
-
-print('\n\nHERES A NORMAL RECIPIE')
-myRecipie = get_recipie_from_URL(URL)
-myRecipie.print_recipie()
-print('NOW WE WILL TRANSFORM IT TO CHEAP')
-myRecipie.to_cheap()
-myRecipie.print_recipie()
-print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
-
-print('\n\nHERES A NORMAL RECIPIE')
-myRecipie = get_recipie_from_URL(URL)
-myRecipie.print_recipie()
-print('NOW WE WILL TRANSFORM IT TO GLUTEN FREE')
-myRecipie.to_gluten_free()
-myRecipie.print_recipie()
-print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
-'''
