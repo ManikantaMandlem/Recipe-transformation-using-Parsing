@@ -13,10 +13,13 @@ import re
 import random
 import pandas as pd
 #https://stackoverflow.com/questions/28639677/capitalize-the-first-letter-after-a-punctuation/28639714
+#https://stackoverflow.com/questions/68640360/python-replace-fractions-in-a-string
 from beautifultable import BeautifulTable
 from pattern.en import pluralize, singularize
 from nltk.util import ngrams
 from nltk.tokenize import RegexpTokenizer
+from fractions import Fraction
+
 
 URL = "https://www.allrecipes.com/recipe/11679/homemade-mac-and-cheese/"
 URL_nonveg = 'https://www.allrecipes.com/recipe/258947/mushroom-beef-burgers/'
@@ -167,6 +170,7 @@ class Recipe:
             self.Steps[i].methods[j] = new_step
         
   def to_veg(self):
+    check = False
     print('Transforming recipie to veg')
     with open(non_veg_file_path) as file:
       lines = file.readlines()
@@ -182,6 +186,7 @@ class Recipe:
         if match_ingredient(non_veg_item,self.Ingredients[i]):
          old_ingredient = non_veg_item
          self.Ingredients[i]
+         check = True
 
     if (old_ingredient):
       substitute_ingredient = random.choice(list_of_veg_substitutes)
@@ -199,7 +204,7 @@ class Recipe:
 
   def to_healthy(self):
     check=False
-    print('Transforming recipie to veg')
+    print('Transforming recipie to healthy')
     df_ingredients = pd.read_csv(healthy_ingredients_subs_path)
     df_ingredients = df_ingredients.to_numpy()
 
@@ -340,6 +345,7 @@ def get_recipie_from_URL(URL):
     step_text = step.text
     step_text.encode("ascii", "ignore").strip()
     step_text = step.text.replace('fat free','fat-free')
+    step_txt = fix_fraction(step_text)
     directions.append(step_text)
 
   #--------------------------Half Parsed Directions are ready------------------#
@@ -662,6 +668,7 @@ def match_ingredient(keyword,Ingredient):
         return True
     return False
 '''
+'''
 def match_ingredient(keyword,Ingredient):
     main_ingredients_words = Ingredient.main_ingredients.lower()
     full_ingredient_words = Ingredient.fullname.lower()
@@ -675,6 +682,29 @@ def match_ingredient(keyword,Ingredient):
     if pluralize(keyword) in main_ingredients_words or pluralize(keyword) in full_ingredient_words:
         return True
     return False
+'''
+def match_ingredient(keyword,Ingredient):
+    main_ingredients_words = Ingredient.main_ingredients.lower()
+    full_ingredient_words = Ingredient.fullname.lower()
+    keyword_lower = keyword.lower()
+    if keyword in main_ingredients_words:
+        return True
+    
+    if singularize(keyword) in main_ingredients_words:
+        return True
+    
+    if pluralize(keyword) in main_ingredients_words:
+        return True
+    return False
+    
+def fix_fraction(stri):
+    def frac2string(s):
+        i, f = s.groups(0)
+        f = Fraction(f)
+        return str(int(i) + float(f))
+    
+    return re.sub(r'(?:(\d+)[-\s])?(\d+/\d+)', frac2string, stri)
+    
 
 def print_choices():
     print('1. Parse and display a new recipie')
@@ -688,6 +718,7 @@ def print_choices():
     print('0. Exit')
 
 print('Welcome to Interactive Cook Book')   
+print('Please run this program in powershell and fully maximized for an optimum viewing experience')
 choice = -100
 url_choice = 0
 myRecipie = None
@@ -698,7 +729,7 @@ while (True):
     print_choices()
     choice = int(input())
     
-    if choice not in (0,1,9) and not myRecipie:
+    if choice not in (0,1) and not myRecipie:
         print('You havent selected a recipie yet!')
         continue
         
@@ -760,15 +791,5 @@ while (True):
         if check:
             myRecipie.print_recipie()
     
-    elif choice==9:
-        random_URL = 'http://allrecipes.com/recipe/17644'
-        myRecipie = get_recipie_from_URL(random_URL)
-        print(random_URL)
-        myRecipie.print_recipie()
-    
     else:
         print('Invalid choice')
-    
-         
-        
-
