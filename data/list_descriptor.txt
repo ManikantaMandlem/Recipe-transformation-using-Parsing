@@ -6,3 +6,6 @@ round
 sourdough
 chunks
 crispy
+virgin
+inch
+thick

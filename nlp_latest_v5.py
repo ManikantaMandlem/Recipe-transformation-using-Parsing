@@ -15,6 +15,8 @@ import pandas as pd
 #https://stackoverflow.com/questions/28639677/capitalize-the-first-letter-after-a-punctuation/28639714
 from beautifultable import BeautifulTable
 from pattern.en import pluralize, singularize
+from nltk.util import ngrams
+from nltk.tokenize import RegexpTokenizer
 
 URL = "https://www.allrecipes.com/recipe/11679/homemade-mac-and-cheese/"
 URL_nonveg = 'https://www.allrecipes.com/recipe/258947/mushroom-beef-burgers/'
@@ -69,6 +71,7 @@ class Ingredient:
     print('Preparation: ',self.preparation)
     print('Used in steps',self.step_indexes)
     print('Ingredient Type', self.ingredient_type,'\n')
+
 class Step:
   def __init__(self,full_step=None,ingredients=[],tools=[],methods = [],times=None,index=None):  
     self.full_step = full_step
@@ -129,7 +132,7 @@ class Recipe:
   def substitute_ingredient_fn(self,old_ingredient, substitute_ingredient):
     
     index_of_ingredient = 0
-    print('Replacing ',old_ingredient,'with',substitute_ingredient)
+    print('Replacing',old_ingredient,'with',substitute_ingredient)
 
     for i in range(len(self.Ingredients)):
       if old_ingredient.lower() in self.Ingredients[i].fullname.lower() or old_ingredient.lower() in self.Ingredients[i].main_ingredients.lower():
@@ -139,7 +142,8 @@ class Recipe:
         break
        
     for i in self.Ingredients[index_of_ingredient].step_indexes:
-      self.Steps[i].full_step = re.sub(old_ingredient, substitute_ingredient, self.Steps[i].full_step, flags=re.IGNORECASE) 
+      #self.Steps[i].full_step = re.sub(old_ingredient, substitute_ingredient, self.Steps[i].full_step, flags=re.IGNORECASE) 
+      self.Steps[i].full_step = tokenize_and_sub(self.Steps[i].full_step,old_ingredient,substitute_ingredient)
       for j in range(len(self.Steps[i].ingredients)):
         if old_ingredient.lower() in self.Steps[i].ingredients[j].fullname.lower() or old_ingredient.lower() in self.Steps[i].ingredients[j].main_ingredients.lower():
           self.Steps[i].ingredients[j] = self.Ingredients[index_of_ingredient]
@@ -147,6 +151,8 @@ class Recipe:
 
   def substitute_step_fn(self,old_step, new_step):
     
+    print('Replacing',old_step,'with',new_step)
+
     index_of_ingredient = 0
 
     for i in range(len(self.Methods)):
@@ -173,15 +179,17 @@ class Recipe:
     old_ingredient = None
     for i in range(len(self.Ingredients)):
       for non_veg_item in list_of_non_veg_items:
-        #if non_veg_item in self.Ingredients[i].fullname.lower() or non_veg_item in self.Ingredients[i].main_ingredients.lower():
         if match_ingredient(non_veg_item,self.Ingredients[i]):
          old_ingredient = non_veg_item
+         self.Ingredients[i]
 
     if (old_ingredient):
       substitute_ingredient = random.choice(list_of_veg_substitutes)
       self.substitute_ingredient_fn(old_ingredient, substitute_ingredient)
     else:
       print('Didnt find any non veg items to substitute')
+      
+      return check
     
   def ratio(self,ratio_num):
     print('Transforming ratio of ingredients to',ratio_num)
@@ -190,6 +198,7 @@ class Recipe:
         self.Ingredients[i].quantity=float(self.Ingredients[i].quantity)*ratio_num
 
   def to_healthy(self):
+    check=False
     print('Transforming recipie to veg')
     df_ingredients = pd.read_csv(healthy_ingredients_subs_path)
     df_ingredients = df_ingredients.to_numpy()
@@ -199,59 +208,112 @@ class Recipe:
 
     for i in range(len(self.Ingredients)):
       if 'salt' in self.Ingredients[i].fullname.lower() or 'salt' in self.Ingredients[i].main_ingredients.lower():
-        self.Ingredients[i].quantity *= 0.5
+        if (self.Ingredients[i].quantity.isnumeric()):
+            self.Ingredients[i].quantity *= 0.5
         print("Halved the quantity of salt")
+        check=True
       if 'butter' in self.Ingredients[i].fullname.lower() or 'butter' in self.Ingredients[i].main_ingredients.lower():
-        self.Ingredients[i].quantity *= 0.75
-        print("3/4th the quantity of salt")
+        if (self.Ingredients[i].quantity.isnumeric()):
+            self.Ingredients[i].quantity *= 0.75
+        print("3/4th the quantity of butter")
+        check=True
       for unhealthy_item,substitute_ingredient in df_ingredients:
-        if unhealthy_item.lower() in self.Ingredients[i].fullname.lower() or unhealthy_item.lower() in self.Ingredients[i].main_ingredients.lower():
+        #if unhealthy_item.lower() in self.Ingredients[i].fullname.lower() or unhealthy_item.lower() in self.Ingredients[i].main_ingredients.lower():
+        if match_ingredient(unhealthy_item,self.Ingredients[i]):
           self.substitute_ingredient_fn(unhealthy_item, substitute_ingredient)
   
     for i in range(len(self.Steps)):
       for unhealthy_step,substitute_step in df_steps:
           if unhealthy_step in self.Steps[i].full_step.lower():
             self.substitute_step_fn(unhealthy_step, substitute_step)  
+            check=True
+    
+    if check:
+        print('Transforming recipie to Healthy complete')
+    else:
+        print('This recipie is as healthy as I can make it. Sorry!')
+    
+    return check
 
   def to_chinese(self):
+    check = False
     print('Transforming recipie to Chinese')
     df_ingredients = pd.read_csv(chinese_ingredients_subs_path)
     df_ingredients = df_ingredients.to_numpy()
 
     for i in range(len(self.Ingredients)):
       for item,substitute_ingredient in df_ingredients:
-        if item.lower() in self.Ingredients[i].fullname.lower() or item.lower() in self.Ingredients[i].main_ingredients.lower():
+        #if item.lower() in self.Ingredients[i].fullname.lower() or item.lower() in self.Ingredients[i].main_ingredients.lower():
+        if match_ingredient(item,self.Ingredients[i]):
           self.substitute_ingredient_fn(item, substitute_ingredient)
+          check=True
+    
+    if check:
+        print('Transforming recipie to Chinese complete')
+    else:
+        print('I couldnt find a suitable substituiton. Sorry!')
+    
+    return check
   
   def to_indian(self):
+    check=False
     print('Transforming recipie to Indian')
     df_ingredients = pd.read_csv(indian_ingredients_subs_path)
     df_ingredients = df_ingredients.to_numpy()
 
     for i in range(len(self.Ingredients)):
       for item,substitute_ingredient in df_ingredients:
-        if item.lower() in self.Ingredients[i].fullname.lower() or item.lower() in self.Ingredients[i].main_ingredients.lower():
+        #if item.lower() in self.Ingredients[i].fullname.lower() or item.lower() in self.Ingredients[i].main_ingredients.lower():
+        if match_ingredient(item,self.Ingredients[i]):
           self.substitute_ingredient_fn(item, substitute_ingredient)
+          check=True
+    
+    if check:
+        print('Transforming recipie to Indian complete')
+    else:
+        print('I couldnt find a suitable substituiton. Sorry!')
+    
+    return check
   
   def to_cheap(self):
+    check=False
     print('Transforming recipie to cheaper recipie')
     df_ingredients = pd.read_csv(cheap_ingredients_subs_path)
     df_ingredients = df_ingredients.to_numpy()
 
     for i in range(len(self.Ingredients)):
       for item,substitute_ingredient in df_ingredients:
-        if item.lower() in self.Ingredients[i].fullname.lower() or item.lower() in self.Ingredients[i].main_ingredients.lower():
-          self.substitute_ingredient_fn(item, substitute_ingredient)
-          
+        #if item.lower() in self.Ingredients[i].fullname.lower() or item.lower() in self.Ingredients[i].main_ingredients.lower():
+        if match_ingredient(item,self.Ingredients[i]):
+            self.substitute_ingredient_fn(item, substitute_ingredient)
+            check=False
+    
+    if check:
+        print('Transforming recipie to cheap complete')
+    else:
+        print('I couldnt find a suitable substituiton. Sorry!')
+    
+    return check
+        
   def to_gluten_free(self):
+    check=False
     print('Transforming recipie to gluten free recipie')
     df_ingredients = pd.read_csv(gluten_free_ingredients_subs_path)
     df_ingredients = df_ingredients.to_numpy()
 
     for i in range(len(self.Ingredients)):
       for item,substitute_ingredient in df_ingredients:
-        if item.lower() in self.Ingredients[i].fullname.lower() or item.lower() in self.Ingredients[i].main_ingredients.lower():
+        #if item.lower() in self.Ingredients[i].fullname.lower() or item.lower() in self.Ingredients[i].main_ingredients.lower():
+        if match_ingredient(item,self.Ingredients[i]):
           self.substitute_ingredient_fn(item, substitute_ingredient)
+          check=True
+    
+    if check:
+        print('Transforming recipie to gluten free complete')
+    else:
+        print('I couldnt find a suitable substituiton. Sorry!')
+    
+    return check
            
 def get_recipie_from_URL(URL):
   myRecipie = Recipe()
@@ -569,9 +631,40 @@ def check_ingredient(ingredient,step):
         return True
   return False
 
+def tokenize_and_sub(stri,ingredient,new_ingredient):
+
+  tokenizer = RegexpTokenizer(r'\w+')
+  token = tokenizer.tokenize(ingredient)
+  for i in range(len(ingredient.split()),0,-1):
+    ngram = list(ngrams(token, i))
+    substrings = []  
+    for j in range(len(ngram)):
+      substrings.append(' '.join(ngram[j]))
+    for substring in substrings:
+      if substring in stri:
+        stri = stri.replace(substring,new_ingredient)
+        return stri
+  return stri
+
+
+'''
 def match_ingredient(keyword,Ingredient):
     main_ingredients_words = Ingredient.main_ingredients.lower().split()
     full_ingredient_words = Ingredient.fullname.lower().split()
+    keyword_lower = keyword.lower()
+    if keyword in main_ingredients_words or keyword in full_ingredient_words:
+        return True
+    
+    if singularize(keyword) in main_ingredients_words or singularize(keyword) in full_ingredient_words:
+        return True
+    
+    if pluralize(keyword) in main_ingredients_words or pluralize(keyword) in full_ingredient_words:
+        return True
+    return False
+'''
+def match_ingredient(keyword,Ingredient):
+    main_ingredients_words = Ingredient.main_ingredients.lower()
+    full_ingredient_words = Ingredient.fullname.lower()
     keyword_lower = keyword.lower()
     if keyword in main_ingredients_words or keyword in full_ingredient_words:
         return True
@@ -591,19 +684,21 @@ def print_choices():
     print('5. Convert current recipie to indian')
     print('6. Convert current recipie to chinese')
     print('7. Convert current recipie to a cheaper alternative')
+    print('8. Convert current recipie to a healthier alternative')
     print('0. Exit')
 
 print('Welcome to Interactive Cook Book')   
 choice = -100
 url_choice = 0
 myRecipie = None
+check = False
 while (True):
     
     print('Please enter a choice')
     print_choices()
     choice = int(input())
     
-    if choice not in (0,1,8) and not myRecipie:
+    if choice not in (0,1,9) and not myRecipie:
         print('You havent selected a recipie yet!')
         continue
         
@@ -636,26 +731,36 @@ while (True):
         myRecipie.print_recipie()
     
     elif choice==3:
-        myRecipie.to_veg()
-        myRecipie.print_recipie()
+        check = myRecipie.to_veg()
+        if check:
+            myRecipie.print_recipie()
     
     elif choice==4:
-        myRecipie.to_gluten_free()
-        myRecipie.print_recipie()
+        check = myRecipie.to_gluten_free()
+        if check:
+            myRecipie.print_recipie()
     
     elif choice==5:
-        myRecipie.to_indian()
-        myRecipie.print_recipie()
+        check = myRecipie.to_indian()
+        if check:
+            myRecipie.print_recipie()
     
     elif choice==6:
-        myRecipie.to_chinese()
-        myRecipie.print_recipie()
+        check = myRecipie.to_chinese()
+        if check:
+            myRecipie.print_recipie()
     
     elif choice==7:
-        myRecipie.to_cheap()
-        myRecipie.print_recipie()
+        check = myRecipie.to_cheap()
+        if check:
+            myRecipie.print_recipie()
     
     elif choice==8:
+        check = myRecipie.to_healthy()
+        if check:
+            myRecipie.print_recipie()
+    
+    elif choice==9:
         random_URL = 'http://allrecipes.com/recipe/17644'
         myRecipie = get_recipie_from_URL(random_URL)
         print(random_URL)

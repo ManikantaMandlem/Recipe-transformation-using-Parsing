@@ -5,3 +5,5 @@ hot
 all-purpose
 pecan
 poppy
+olive
+garlic
