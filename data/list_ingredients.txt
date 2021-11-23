@@ -7,3 +7,4 @@ pecan
 poppy
 olive
 garlic
+shrimp

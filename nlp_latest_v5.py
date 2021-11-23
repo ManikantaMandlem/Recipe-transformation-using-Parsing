@@ -26,8 +26,9 @@ URL_nonveg = 'https://www.allrecipes.com/recipe/258947/mushroom-beef-burgers/'
 URL_unhealthy = 'https://www.allrecipes.com/recipe/8338/cannoli-with-chocolate-chips/'
 main_path = "data/"
 extra_path = "extra/"
-non_veg_file_path = main_path + "list_of_non_veg_items.txt"
-veg_subs_path = main_path + "list_of_veg_substitutes.txt"
+#non_veg_file_path = main_path + "list_of_non_veg_items.txt"
+#veg_subs_path = main_path + "list_of_veg_substitutes.txt"
+veg_subs_path = main_path + "veg_subs.csv"
 tools_path = main_path + "list_of_tools.txt"
 cooking_method_path = main_path + "list_of_cooking_methods.txt"
 healthy_ingredients_subs_path = main_path + "healthy_ingredients_subs.csv"
@@ -50,6 +51,7 @@ pulses_list_path = extra_path + "pulses_list.txt"
 spices_list_path = extra_path + "spices_list.txt"
 veggie_list_path = extra_path + "veggie_list.txt"
 herb_list_path = extra_path + "herb_list.txt"
+sauce_list_path = extra_path + "sauces_list.txt"
 
 class Ingredient:
 
@@ -170,37 +172,37 @@ class Recipe:
             self.Steps[i].methods[j] = new_step
         
   def to_veg(self):
-    check = False
-    print('Transforming recipie to veg')
-    with open(non_veg_file_path) as file:
-      lines = file.readlines()
-      list_of_non_veg_items = [line.rstrip() for line in lines]
-
-    with open(veg_subs_path) as file:
-      lines = file.readlines()
-      list_of_veg_substitutes = [line.rstrip() for line in lines]
-  
-    old_ingredient = None
+    check=False
+    df_ingredients = pd.read_csv(veg_subs_path)
+    df_ingredients = df_ingredients.to_numpy()
     for i in range(len(self.Ingredients)):
-      for non_veg_item in list_of_non_veg_items:
-        if match_ingredient(non_veg_item,self.Ingredients[i]):
-         old_ingredient = non_veg_item
-         self.Ingredients[i]
-         check = True
-
-    if (old_ingredient):
-      substitute_ingredient = random.choice(list_of_veg_substitutes)
-      self.substitute_ingredient_fn(old_ingredient, substitute_ingredient)
+      for item,substitute_ingredient in df_ingredients:
+        #if item.lower() in self.Ingredients[i].fullname.lower() or item.lower() in self.Ingredients[i].main_ingredients.lower():
+        if match_ingredient(item,self.Ingredients[i]):
+          self.substitute_ingredient_fn(item, substitute_ingredient)
+          check=True
+          break
+    
+    if check:
+        print('Transforming recipie to Veg complete')
     else:
-      print('Didnt find any non veg items to substitute')
-      
-      return check
+        print('I couldnt find a suitable substituiton. Sorry!')
+    
+    return check
     
   def ratio(self,ratio_num):
     print('Transforming ratio of ingredients to',ratio_num)
     for i in range(len(self.Ingredients)):
+      for j in self.Ingredients[i].step_indexes:
+        if (' '.join((self.Ingredients[i].quantity,self.Ingredients[i].units))) in self.Steps[j].full_step:
+           old_str =' '.join((self.Ingredients[i].quantity,self.Ingredients[i].units))
+           new_quantity = str(float(self.Ingredients[i].quantity) * ratio_num)
+           new_str = ' '.join((new_quantity,self.Ingredients[i].units))
+           self.Steps[j].full_step = self.Steps[j].full_step.replace(old_str,new_str)
+      
       if self.Ingredients[i].quantity.isnumeric():
         self.Ingredients[i].quantity=float(self.Ingredients[i].quantity)*ratio_num
+         
 
   def to_healthy(self):
     check=False
@@ -226,6 +228,7 @@ class Recipe:
         #if unhealthy_item.lower() in self.Ingredients[i].fullname.lower() or unhealthy_item.lower() in self.Ingredients[i].main_ingredients.lower():
         if match_ingredient(unhealthy_item,self.Ingredients[i]):
           self.substitute_ingredient_fn(unhealthy_item, substitute_ingredient)
+          break
   
     for i in range(len(self.Steps)):
       for unhealthy_step,substitute_step in df_steps:
@@ -252,6 +255,7 @@ class Recipe:
         if match_ingredient(item,self.Ingredients[i]):
           self.substitute_ingredient_fn(item, substitute_ingredient)
           check=True
+          break
     
     if check:
         print('Transforming recipie to Chinese complete')
@@ -272,6 +276,7 @@ class Recipe:
         if match_ingredient(item,self.Ingredients[i]):
           self.substitute_ingredient_fn(item, substitute_ingredient)
           check=True
+          break
     
     if check:
         print('Transforming recipie to Indian complete')
@@ -292,6 +297,7 @@ class Recipe:
         if match_ingredient(item,self.Ingredients[i]):
             self.substitute_ingredient_fn(item, substitute_ingredient)
             check=False
+            break
     
     if check:
         print('Transforming recipie to cheap complete')
@@ -312,6 +318,7 @@ class Recipe:
         if match_ingredient(item,self.Ingredients[i]):
           self.substitute_ingredient_fn(item, substitute_ingredient)
           check=True
+          break
     
     if check:
         print('Transforming recipie to gluten free complete')
@@ -345,7 +352,7 @@ def get_recipie_from_URL(URL):
     step_text = step.text
     step_text.encode("ascii", "ignore").strip()
     step_text = step.text.replace('fat free','fat-free')
-    step_txt = fix_fraction(step_text)
+    step_text = fix_fraction(step_text)
     directions.append(step_text)
 
   #--------------------------Half Parsed Directions are ready------------------#
@@ -418,6 +425,10 @@ def get_recipie_from_URL(URL):
      lines = file.readlines()
      list_of_herb_ingredients = [line.rstrip() for line in lines]
   
+  with open(sauce_list_path) as file:
+     lines = file.readlines()
+     list_of_sauce_ingredients = [line.rstrip() for line in lines]
+  
   def preprocess(sent):
     sent = nltk.word_tokenize(sent)
     sent = nltk.pos_tag(sent)
@@ -454,6 +465,12 @@ def get_recipie_from_URL(URL):
             Ingredients[i].ingredient_type = 'Dairy'
             break
   
+    if (Ingredients[i].ingredient_type =='General'):
+        for item in list_of_sauce_ingredients:
+            if match_ingredient(item,new_ingredient):
+                Ingredients[i].ingredient_type = 'Sauce/Dressing'
+                break
+    
     if (Ingredients[i].ingredient_type =='General'):
         for item in list_of_grain_ingredients:
             if match_ingredient(item,new_ingredient):
@@ -738,11 +755,12 @@ while (True):
         break
     
     elif choice==1:
-        print('Will you give a url, or shall I just take any random recipe?')
-        print('Press 1 to enter url or 2 to randomly select')
-        url_choice = int(input())
+        #print('Will you give a url, or shall I just take any random recipe?')
+        #print('Press 1 to enter url or 2 to randomly select')
+        #url_choice = int(input())
+        url_choice = 1
         if url_choice == 1:
-            print('Press enter url: ')
+            print('Press enter url: ',end='')
             input_url = input()
             input_url = input_url.strip()
             myRecipie = get_recipie_from_URL(input_url)
