@@ -14,6 +14,7 @@ import random
 import pandas as pd
 #https://stackoverflow.com/questions/28639677/capitalize-the-first-letter-after-a-punctuation/28639714
 from beautifultable import BeautifulTable
+from pattern.en import pluralize, singularize
 
 URL = "https://www.allrecipes.com/recipe/11679/homemade-mac-and-cheese/"
 URL_nonveg = 'https://www.allrecipes.com/recipe/258947/mushroom-beef-burgers/'
@@ -31,6 +32,7 @@ cheap_ingredients_subs_path = main_path + "cheap_subs.csv"
 gluten_free_ingredients_subs_path = main_path + "gluten_subs.csv"
 implied_tools_path = main_path + "implied_tools.csv"
 additional_descriptor_file_path = main_path + "list_descriptor.txt"
+additional_preperation_file_path = main_path + "list_preperation.txt"
 
 class Ingredient:
 
@@ -84,7 +86,9 @@ class Recipe:
     self.primary_cooking_method= None
   
   def print_recipie(self):
-    print('NAME OF RECIPIE: ',self.title)
+    if (self.title):
+        print('Name of recipie: ',self.title)
+    print('URL: ',self.URL)
     print('Primary Cooking Method: ',self.primary_cooking_method)
     print('Required_Tools:',','.join(self.Tools))
     print('Used Methods:',','.join(self.Methods))
@@ -101,7 +105,7 @@ class Recipe:
   
   def print_table_steps(self):
     table = BeautifulTable(maxwidth=130)
-    table.columns.header = ["Step number", "Full Step", "Ingredients","Tools","Methods","Times"]
+    table.columns.header = ["Step", "Full Step", "Ingredients","Tools","Methods","Times"]
     for step in self.Steps:
       step_ingredients = []
       for ingredient in step.ingredients:
@@ -123,7 +127,6 @@ class Recipe:
        
     for i in self.Ingredients[index_of_ingredient].step_indexes:
       self.Steps[i].full_step = re.sub(old_ingredient, substitute_ingredient, self.Steps[i].full_step, flags=re.IGNORECASE) 
-      #self.Steps[i].full_step = self.Steps[i].full_step.replace(old_ingredient,substitute_ingredient)
       for j in range(len(self.Steps[i].ingredients)):
         if old_ingredient.lower() in self.Steps[i].ingredients[j].fullname.lower() or old_ingredient.lower() in self.Steps[i].ingredients[j].main_ingredients.lower():
           self.Steps[i].ingredients[j] = self.Ingredients[index_of_ingredient]
@@ -163,6 +166,8 @@ class Recipe:
     if (old_ingredient):
       substitute_ingredient = random.choice(list_of_veg_substitutes)
       self.substitute_ingredient_fn(old_ingredient, substitute_ingredient)
+    else:
+      print('Didnt find any non veg items to substitute')
     
   def ratio(self,ratio_num):
     print('Transforming ratio of ingredients to',ratio_num)
@@ -181,8 +186,10 @@ class Recipe:
     for i in range(len(self.Ingredients)):
       if 'salt' in self.Ingredients[i].fullname.lower() or 'salt' in self.Ingredients[i].main_ingredients.lower():
         self.Ingredients[i].quantity *= 0.5
+        print("Halved the quantity of salt")
       if 'butter' in self.Ingredients[i].fullname.lower() or 'butter' in self.Ingredients[i].main_ingredients.lower():
         self.Ingredients[i].quantity *= 0.75
+        print("3/4th the quantity of salt")
       for unhealthy_item,substitute_ingredient in df_ingredients:
         if unhealthy_item.lower() in self.Ingredients[i].fullname.lower() or unhealthy_item.lower() in self.Ingredients[i].main_ingredients.lower():
           self.substitute_ingredient_fn(unhealthy_item, substitute_ingredient)
@@ -285,6 +292,10 @@ def get_recipie_from_URL(URL):
      lines = file.readlines()
      list_of_additional_descriptors = [line.rstrip() for line in lines] 
   
+  with open(additional_preperation_file_path) as file:
+     lines = file.readlines()
+     list_of_additional_preperations = [line.rstrip() for line in lines] 
+  
   def preprocess(sent):
     sent = nltk.word_tokenize(sent)
     sent = nltk.pos_tag(sent)
@@ -298,11 +309,15 @@ def get_recipie_from_URL(URL):
         continue
       elif token[0] in list_of_additional_descriptors:
         descriptor[i]+= token[0]+' '
+      elif token[0] in list_of_additional_preperations:
+        preparation[i]+= token[0]+' '
+      elif token[0] in ['shortening','baking','seasoning','hot','all-purpose']:
+        main_ingredients[i]+= token[0]+' '
       elif token[1] in ['JJ','JJR','JJS']:
         descriptor[i]+= token[0]+' '
       elif token[1] in ['VBN','VBD']:
         preparation[i]+= token[0]+' '
-      elif token[1] in ['NN','NNS','NNP','NNPS'] or token[0] == 'baking':
+      elif token[1] in ['NN','NNS','NNP','NNPS']:
         main_ingredients[i] += token[0]+' '
     main_ingredients[i] = main_ingredients[i].rstrip()
     descriptor[i] = descriptor[i].rstrip()
@@ -317,7 +332,7 @@ def get_recipie_from_URL(URL):
     for j in range(len(directions)):
       direction_lower = directions[j]
       
-      if 'all other ingredients' in direction_lower or 'all ingredients' in direction_lower and len(step_indexes)==0:
+      if 'all other ingredients' in direction_lower or 'all ingredients' in direction_lower or 'other ingredients' in direction_lower or 'remaining ingredients' in direction_lower and len(step_indexes)==0:
         step_indexes.append(j)    
         index  = re.search('all other ingredients except|all ingredients except',direction_lower).start()
         if check_ingredient(Ingredients[i].main_ingredients,direction_lower[index:]) or check_ingredient(Ingredients[i].main_ingredients.replace(" ", ""),direction_lower[index:]):
@@ -325,6 +340,7 @@ def get_recipie_from_URL(URL):
         
       elif check_ingredient(Ingredients[i].main_ingredients,direction_lower) or check_ingredient(Ingredients[i].main_ingredients.replace(" ", ""),direction_lower):
         step_indexes.append(j)
+
       
     Ingredients[i].step_indexes = step_indexes
   
@@ -343,11 +359,12 @@ def get_recipie_from_URL(URL):
   for i in range(len(directions)):
     direction_lower = directions[i]
     for tool in list_of_tools:
-      if tool in direction_lower and tool not in Tools:
-        Tools.append(tool)
+      if tool in direction_lower or singularize(tool) in direction_lower or pluralize(tool) in direction_lower:
+        if tool not in Tools:
+            Tools.append(tool.strip())
     for keyword,implied_tool in df_tools:
-      if keyword.lower() in direction_lower and tool not in Tools:
-        Tools.append(implied_tool)
+      if keyword.lower() in direction_lower and implied_tool not in Tools:
+        Tools.append(implied_tool.strip())
 
   myRecipie.Tools = Tools
   #----------------------------Tools are ready--------------------------#
@@ -362,8 +379,8 @@ def get_recipie_from_URL(URL):
   for i in range(len(directions)):
     direction_lower = directions[i].lower().split()
     for cooking_method in list_of_cooking_methods:
-      if cooking_method in direction_lower or lemmatizer.lemmatize(cooking_method) in direction_lower:
-        Cooking_Methods.append(cooking_method)
+      if cooking_method in direction_lower or lemmatizer.lemmatize(cooking_method) in direction_lower or singularize(cooking_method) in direction_lower or pluralize(cooking_method) in direction_lower:
+        Cooking_Methods.append(cooking_method.strip())
       if cooking_method in title_text or lemmatizer.lemmatize(cooking_method) in title_text:
         myRecipie.primary_cooking_method =  cooking_method
         
@@ -384,21 +401,19 @@ def get_recipie_from_URL(URL):
     
     for tool in Tools:
       if tool in direction_lower and tool not in step_wise_tools:
-        step_wise_tools.append(tool)
+        step_wise_tools.append(tool.strip())
       for keyword,implied_tool in df_tools:
         if keyword.lower() in direction_lower and implied_tool not in step_wise_tools:
-            step_wise_tools.append(implied_tool)
+            step_wise_tools.append(implied_tool.strip())
     
     for method in Cooking_Methods:
       if method in direction_lower and method not in step_wise_methods:
-        step_wise_methods.append(method)
+        step_wise_methods.append(method.strip())
     
     for ingredient in Ingredients:
-      #if ingredient.main_ingredients in direction_lower and ingredient.fullname not in step_wise_ingredients :
-      #  step_wise_ingredients.append(ingredient)
-      for index in ingredient.step_indexes:
-        if index==i:
-            step_wise_ingredients.append(ingredient)
+        for index in ingredient.step_indexes:
+            if index==i:
+                step_wise_ingredients.append(ingredient)
     
     time_keywords = ' minutes| seconds| hours| secs| hrs| mins| min'
     if (re.search(time_keywords,direction_lower)):
@@ -417,20 +432,21 @@ def get_recipie_from_URL(URL):
 
 def check_ingredient(ingredient,step):
   if ingredient.lower() in ['baking powder','baking soda']:
-    if ingredient.lower() in step.lower():
+    if ingredient.lower() in step.lower() or pluralize(ingredient.lower()) in step.lower() or singularize(ingredient.lower()) in step.lower():
         return True
   elif len(ingredient.split())==1:
-    if ingredient.lower() in step.lower():
+    if ingredient.lower() in step.lower() or pluralize(ingredient.lower()) in step.lower() or singularize(ingredient.lower()) in step.lower():
       return True
   else:
     matches = 0
     for word in ingredient.split():
-      if word.lower() in step.lower():
+      if word.lower() in step.lower() or pluralize(word.lower()) in step.lower() or singularize(word.lower()) in step.lower():
         matches+=1
-    if len(ingredient.split())==2 and matches>=1:
-      return True
-    elif len(ingredient)-matches <= 2:
-      return True
+    if len(ingredient.split())==2:
+      if matches>=1:
+        return True
+    elif len(ingredient.split())-matches <= 2:
+        return True
   return False
 
 def print_choices():
@@ -466,14 +482,13 @@ while (True):
         print('Press 1 to enter url or 2 to randomly select')
         url_choice = int(input())
         if url_choice == 1:
+            print('Press enter url: ')
             input_url = input()
             myRecipie = get_recipie_from_URL(input_url)
             myRecipie.print_recipie()
         elif url_choice == 2:
             random_URL ="http://allrecipes.com/recipe/" + str(random.randint(6660, 27000))
-            #random_URL = 'http://allrecipes.com/recipe/24290'
             myRecipie = get_recipie_from_URL(random_URL)
-            print(random_URL)
             myRecipie.print_recipie()
         else:
             print('Invalid choice')
@@ -502,11 +517,11 @@ while (True):
         myRecipie.print_recipie()
     
     elif choice==7:
-        myRecipie.to_cheaper()
+        myRecipie.to_cheap()
         myRecipie.print_recipie()
     
     elif choice==8:
-        random_URL = 'http://allrecipes.com/recipe/13039'
+        random_URL = 'http://allrecipes.com/recipe/17644'
         myRecipie = get_recipie_from_URL(random_URL)
         print(random_URL)
         myRecipie.print_recipie()

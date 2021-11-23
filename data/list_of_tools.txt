@@ -45,7 +45,9 @@ pressure cooker
 cooker
 casserole 
 cookie sheets
-cookie sheet
 parchment paper
 foil
 baking dish
+toothpick
+jar
+freezer container
