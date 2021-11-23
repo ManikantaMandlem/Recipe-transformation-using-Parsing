@@ -20,6 +20,7 @@ URL = "https://www.allrecipes.com/recipe/11679/homemade-mac-and-cheese/"
 URL_nonveg = 'https://www.allrecipes.com/recipe/258947/mushroom-beef-burgers/'
 URL_unhealthy = 'https://www.allrecipes.com/recipe/8338/cannoli-with-chocolate-chips/'
 main_path = "data/"
+extra_path = "extra/"
 non_veg_file_path = main_path + "list_of_non_veg_items.txt"
 veg_subs_path = main_path + "list_of_veg_substitutes.txt"
 tools_path = main_path + "list_of_tools.txt"
@@ -33,10 +34,21 @@ gluten_free_ingredients_subs_path = main_path + "gluten_subs.csv"
 implied_tools_path = main_path + "implied_tools.csv"
 additional_descriptor_file_path = main_path + "list_descriptor.txt"
 additional_preperation_file_path = main_path + "list_preperation.txt"
+additional_ingredients_file_path = main_path + "list_ingredients.txt"
+
+dairy_list_path = extra_path + "dairy_list.txt"
+fruit_list_path = extra_path + "fruit_list.txt"
+grain_list_path = extra_path + "grain_list.txt"
+nonveg_list_path = extra_path + "non_veg_list.txt"
+nut_list_path = extra_path + "nut_list.txt"
+pulses_list_path = extra_path + "pulses_list.txt"
+spices_list_path = extra_path + "spices_list.txt"
+veggie_list_path = extra_path + "veggie_list.txt"
+herb_list_path = extra_path + "herb_list.txt"
 
 class Ingredient:
 
-  def __init__(self,fullname=None,main_ingredients=None,quantity_type=None,quantity = None,units=None,descriptor=None,preparation=None,step_indexes=[]):  
+  def __init__(self,fullname=None,main_ingredients=None,quantity_type=None,quantity = None,units=None,descriptor=None,preparation=None,step_indexes=[],ingredient_type='General'):  
     self.fullname = fullname
     self.main_ingredients = main_ingredients
     self.quantity_type = quantity_type
@@ -45,6 +57,7 @@ class Ingredient:
     self.descriptor = descriptor
     self.preparation = preparation
     self.step_indexes = step_indexes
+    self.ingredient_type=ingredient_type
 
   def print_ingredient(self):
     print('Full Name: ',self.fullname)
@@ -54,8 +67,8 @@ class Ingredient:
     print("Units: ",self.units)
     print('Descriptor: ',self.descriptor)
     print('Preparation: ',self.preparation)
-    print('Used in steps',self.step_indexes,'\n')
-
+    print('Used in steps',self.step_indexes)
+    print('Ingredient Type', self.ingredient_type,'\n')
 class Step:
   def __init__(self,full_step=None,ingredients=[],tools=[],methods = [],times=None,index=None):  
     self.full_step = full_step
@@ -98,9 +111,9 @@ class Recipe:
   
   def print_table_ingredients(self):
     table = BeautifulTable(maxwidth=130)
-    table.columns.header = ["Full Name", "Main Ingredient", "Quantity Type","Quantity","Units","Descriptor","Preperation","Used in steps"]
+    table.columns.header = ["Full Name", "Main Ingredient", "Ingredient_Type","Quantity Type","Quantity","Units","Descriptor","Preperation","Used in steps"]
     for ingredient in self.Ingredients:
-      table.rows.append([ingredient.fullname,ingredient.main_ingredients,ingredient.quantity_type,ingredient.quantity,ingredient.units,ingredient.descriptor,ingredient.preparation,ingredient.step_indexes])
+      table.rows.append([ingredient.fullname,ingredient.main_ingredients,ingredient.ingredient_type,ingredient.quantity_type,ingredient.quantity,ingredient.units,ingredient.descriptor,ingredient.preparation,ingredient.step_indexes])
     print(table)
   
   def print_table_steps(self):
@@ -160,7 +173,8 @@ class Recipe:
     old_ingredient = None
     for i in range(len(self.Ingredients)):
       for non_veg_item in list_of_non_veg_items:
-        if non_veg_item in self.Ingredients[i].fullname.lower() or non_veg_item in self.Ingredients[i].main_ingredients.lower():
+        #if non_veg_item in self.Ingredients[i].fullname.lower() or non_veg_item in self.Ingredients[i].main_ingredients.lower():
+        if match_ingredient(non_veg_item,self.Ingredients[i]):
          old_ingredient = non_veg_item
 
     if (old_ingredient):
@@ -296,6 +310,46 @@ def get_recipie_from_URL(URL):
      lines = file.readlines()
      list_of_additional_preperations = [line.rstrip() for line in lines] 
   
+  with open(additional_ingredients_file_path) as file:
+     lines = file.readlines()
+     list_of_additional_ingredients = [line.rstrip() for line in lines] 
+  
+  with open(dairy_list_path) as file:
+     lines = file.readlines()
+     list_of_dairy_ingredients = [line.rstrip() for line in lines] 
+  
+  with open(fruit_list_path) as file:
+     lines = file.readlines()
+     list_of_fruit_ingredients = [line.rstrip() for line in lines]
+     
+  with open(grain_list_path) as file:
+     lines = file.readlines()
+     list_of_grain_ingredients = [line.rstrip() for line in lines]
+  
+  with open(nonveg_list_path) as file:
+     lines = file.readlines()
+     list_of_nonveg_ingredients = [line.rstrip() for line in lines]
+  
+  with open(nut_list_path) as file:
+     lines = file.readlines()
+     list_of_nut_ingredients = [line.rstrip() for line in lines]
+  
+  with open(pulses_list_path) as file:
+     lines = file.readlines()
+     list_of_pulses_ingredients = [line.rstrip() for line in lines]
+  
+  with open(spices_list_path) as file:
+     lines = file.readlines()
+     list_of_spices_ingredients = [line.rstrip() for line in lines]
+  
+  with open(veggie_list_path) as file:
+     lines = file.readlines()
+     list_of_veggie_ingredients = [line.rstrip() for line in lines]
+
+  with open(herb_list_path) as file:
+     lines = file.readlines()
+     list_of_herb_ingredients = [line.rstrip() for line in lines]
+  
   def preprocess(sent):
     sent = nltk.word_tokenize(sent)
     sent = nltk.pos_tag(sent)
@@ -311,7 +365,7 @@ def get_recipie_from_URL(URL):
         descriptor[i]+= token[0]+' '
       elif token[0] in list_of_additional_preperations:
         preparation[i]+= token[0]+' '
-      elif token[0] in ['shortening','baking','seasoning','hot','all-purpose']:
+      elif token[0] in list_of_additional_ingredients:
         main_ingredients[i]+= token[0]+' '
       elif token[1] in ['JJ','JJR','JJS']:
         descriptor[i]+= token[0]+' '
@@ -326,7 +380,68 @@ def get_recipie_from_URL(URL):
   for i in range(len(ingredients)):
     new_ingredient = Ingredient(fullname=ingredients[i],main_ingredients=main_ingredients[i],quantity_type=quantity_type[i],quantity = quantities[i],units=units[i],descriptor=','.join(descriptor[i].split()),preparation=','.join(preparation[i].split()))
     Ingredients[i] = new_ingredient
+    
+    for item in list_of_dairy_ingredients:
+        if match_ingredient(item,new_ingredient):
+            Ingredients[i].ingredient_type = 'Dairy'
+            break
   
+    if (Ingredients[i].ingredient_type =='General'):
+        for item in list_of_grain_ingredients:
+            if match_ingredient(item,new_ingredient):
+                Ingredients[i].ingredient_type = 'Grain'
+                break
+   
+    if (Ingredients[i].ingredient_type =='General'):
+        for item in list_of_nonveg_ingredients:
+            if match_ingredient(item,new_ingredient):
+                Ingredients[i].ingredient_type = 'Meat/Fish'
+                break
+   
+    if (Ingredients[i].ingredient_type =='General'):
+        for item in list_of_fruit_ingredients:
+            if match_ingredient(item,new_ingredient):
+                Ingredients[i].ingredient_type = 'Fruit'
+                break
+    
+    if (Ingredients[i].ingredient_type =='General'):
+        for item in list_of_nut_ingredients:
+            if match_ingredient(item,new_ingredient):
+                Ingredients[i].ingredient_type = 'Nut'
+                break
+    
+    if (Ingredients[i].ingredient_type =='General'):
+        for item in list_of_grain_ingredients:
+            if match_ingredient(item,new_ingredient):
+                Ingredients[i].ingredient_type = 'Grain'
+                break
+    
+    if (Ingredients[i].ingredient_type =='General'):
+        for item in list_of_pulses_ingredients:
+            if match_ingredient(item,new_ingredient):
+                Ingredients[i].ingredient_type = 'Pulses'
+                break
+    
+    if (Ingredients[i].ingredient_type =='General'):
+        for item in list_of_spices_ingredients:
+            if match_ingredient(item,new_ingredient):
+                Ingredients[i].ingredient_type = 'Spice/Condiment'
+                break
+    
+    if (Ingredients[i].ingredient_type =='General'):
+        for item in list_of_veggie_ingredients:
+            if match_ingredient(item,new_ingredient):
+                Ingredients[i].ingredient_type = 'Vegetable'
+                break
+    
+    if (Ingredients[i].ingredient_type =='General'):
+        for item in list_of_herb_ingredients:
+            if match_ingredient(item,new_ingredient):
+                Ingredients[i].ingredient_type = 'Herb'
+                break
+    
+    
+            
   for i in range(len(Ingredients)):
     step_indexes = []
     for j in range(len(directions)):
@@ -422,6 +537,11 @@ def get_recipie_from_URL(URL):
       step_wise_times+= str(new_str.split()[-1])
       unit = re.findall(time_keywords,direction_lower)[-1]
       step_wise_times += ''+str(unit)
+      direction_lower_split = direction_lower.split()
+      for j in range(1,len(direction_lower_split)-1):
+        if direction_lower_split[j] == 'to' and direction_lower_split[j-1].isnumeric() and direction_lower_split[j+1].isnumeric():
+            step_wise_times = direction_lower_split[j-1]+' to '+step_wise_times
+      
     new_step = Step (full_step=directions[i],ingredients=step_wise_ingredients,tools=step_wise_tools,methods = step_wise_methods,times=step_wise_times,index=i)
     Steps.append(new_step)
   myRecipie.Steps = Steps
@@ -448,6 +568,20 @@ def check_ingredient(ingredient,step):
     elif len(ingredient.split())-matches <= 2:
         return True
   return False
+
+def match_ingredient(keyword,Ingredient):
+    main_ingredients_words = Ingredient.main_ingredients.lower().split()
+    full_ingredient_words = Ingredient.fullname.lower().split()
+    keyword_lower = keyword.lower()
+    if keyword in main_ingredients_words or keyword in full_ingredient_words:
+        return True
+    
+    if singularize(keyword) in main_ingredients_words or singularize(keyword) in full_ingredient_words:
+        return True
+    
+    if pluralize(keyword) in main_ingredients_words or pluralize(keyword) in full_ingredient_words:
+        return True
+    return False
 
 def print_choices():
     print('1. Parse and display a new recipie')
@@ -484,6 +618,7 @@ while (True):
         if url_choice == 1:
             print('Press enter url: ')
             input_url = input()
+            input_url = input_url.strip()
             myRecipie = get_recipie_from_URL(input_url)
             myRecipie.print_recipie()
         elif url_choice == 2:
