@@ -7,6 +7,8 @@ deep fry
 dry roast
 pressure cook
 pressure fry
+crush
+squeeze
 slow cook
 blanche
 braise
@@ -26,7 +28,6 @@ deglaze
 degrease
 dough sheet
 dredge
-dry
 engastrate
 egg wash
 emulsify

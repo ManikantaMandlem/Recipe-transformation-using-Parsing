@@ -110,7 +110,8 @@ class Recipe:
     if (self.title):
         print('Name of recipie: ',self.title)
     print('URL: ',self.URL)
-    print('Primary Cooking Method: ',self.primary_cooking_method)
+    if (self.primary_cooking_method):
+        print('Primary Cooking Method: ',self.primary_cooking_method)
     print('Required_Tools:',','.join(self.Tools))
     print('Used Methods:',','.join(self.Methods))
     self.print_table_ingredients()
@@ -596,7 +597,8 @@ def get_recipie_from_URL(URL):
     direction_lower = directions[i].lower().split()
     for cooking_method in list_of_cooking_methods:
       if cooking_method in direction_lower or lemmatizer.lemmatize(cooking_method) in direction_lower or singularize(cooking_method) in direction_lower or pluralize(cooking_method) in direction_lower:
-        Cooking_Methods.append(cooking_method.strip())
+        if cooking_method not in Cooking_Methods:
+            Cooking_Methods.append(cooking_method.strip())
       if cooking_method in title_text or lemmatizer.lemmatize(cooking_method) in title_text:
         myRecipie.primary_cooking_method =  cooking_method
         
@@ -636,7 +638,7 @@ def get_recipie_from_URL(URL):
       index = re.search(time_keywords,direction_lower).start()
       new_str = direction_lower[:index]
       step_wise_times+= str(new_str.split()[-1])
-      unit = re.findall(time_keywords,direction_lower)[-1]
+      unit = re.findall(time_keywords,direction_lower)[0]
       step_wise_times += ''+str(unit)
       direction_lower_split = direction_lower.split()
       for j in range(1,len(direction_lower_split)-1):
