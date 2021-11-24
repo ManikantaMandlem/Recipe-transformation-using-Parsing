@@ -297,7 +297,7 @@ class Recipe:
         #if item.lower() in self.Ingredients[i].fullname.lower() or item.lower() in self.Ingredients[i].main_ingredients.lower():
         if match_ingredient(item,self.Ingredients[i]):
             self.substitute_ingredient_fn(item, substitute_ingredient)
-            check=False
+            check=True
             break
     
     if check:
@@ -760,7 +760,14 @@ while (True):
     
     print('Please enter a choice')
     print_choices()
-    choice = int(input())
+    
+    choice = input()
+    
+    if choice.isnumeric():
+        choice = int(choice)
+    else:
+        print('Invalid Choice!')
+        continue
     
     if choice not in (0,1) and not myRecipie:
         print('You havent selected a recipie yet!')
@@ -771,10 +778,10 @@ while (True):
         break
     
     elif choice==1:
-        print('Will you give a url, or shall I just take any random recipe?')
-        print('Press 1 to enter url or 2 to randomly select')
-        url_choice = int(input())
-        #url_choice = 1
+        #print('Will you give a url, or shall I just take any random recipe?')
+        #print('Press 1 to enter url or 2 to randomly select')
+        #url_choice = int(input())
+        url_choice = 1
         if url_choice == 1:
             print('Press enter url: ',end='')
             input_url = input()
