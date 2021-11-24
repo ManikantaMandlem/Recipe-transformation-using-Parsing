@@ -196,10 +196,11 @@ class Recipe:
     for i in range(len(self.Ingredients)):
       for j in self.Ingredients[i].step_indexes:
         if (' '.join((self.Ingredients[i].quantity,self.Ingredients[i].units))) in self.Steps[j].full_step:
-           old_str =' '.join((self.Ingredients[i].quantity,self.Ingredients[i].units))
-           new_quantity = str(float(self.Ingredients[i].quantity) * ratio_num)
-           new_str = ' '.join((new_quantity,self.Ingredients[i].units))
-           self.Steps[j].full_step = self.Steps[j].full_step.replace(old_str,new_str)
+           if (self.Ingredients[i].quantity.isnumeric()):
+               old_str =' '.join((self.Ingredients[i].quantity,self.Ingredients[i].units))
+               new_quantity = str(float(self.Ingredients[i].quantity) * ratio_num)
+               new_str = ' '.join((new_quantity,self.Ingredients[i].units))
+               self.Steps[j].full_step = self.Steps[j].full_step.replace(old_str,new_str)
       
       if self.Ingredients[i].quantity.isnumeric():
         self.Ingredients[i].quantity=float(self.Ingredients[i].quantity)*ratio_num
