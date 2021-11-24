@@ -131,7 +131,7 @@ class Recipe:
       step_ingredients = []
       for ingredient in step.ingredients:
         step_ingredients.append(ingredient.fullname)
-      table.rows.append([step.index,step.full_step,','.join(step_ingredients),','.join(step.tools),','.join(step.methods),step.times])
+      table.rows.append([step.index,step.full_step,';'.join(step_ingredients),','.join(step.tools),','.join(step.methods),step.times])
     print(table)
 
   def substitute_ingredient_fn(self,old_ingredient, substitute_ingredient):
@@ -217,17 +217,18 @@ class Recipe:
       if 'salt' in self.Ingredients[i].fullname.lower() or 'salt' in self.Ingredients[i].main_ingredients.lower():
         if (self.Ingredients[i].quantity.isnumeric()):
             self.Ingredients[i].quantity *= 0.5
-        print("Halved the quantity of salt")
+        print("Use half the quantity of salt")
         check=True
       if 'butter' in self.Ingredients[i].fullname.lower() or 'butter' in self.Ingredients[i].main_ingredients.lower():
         if (self.Ingredients[i].quantity.isnumeric()):
             self.Ingredients[i].quantity *= 0.75
-        print("3/4th the quantity of butter")
+        print("Use 3/4th the quantity of butter")
         check=True
       for unhealthy_item,substitute_ingredient in df_ingredients:
         #if unhealthy_item.lower() in self.Ingredients[i].fullname.lower() or unhealthy_item.lower() in self.Ingredients[i].main_ingredients.lower():
         if match_ingredient(unhealthy_item,self.Ingredients[i]):
           self.substitute_ingredient_fn(unhealthy_item, substitute_ingredient)
+          check=True
           break
   
     for i in range(len(self.Steps)):
@@ -436,7 +437,7 @@ def get_recipie_from_URL(URL):
   
   for i in range(len(ingredients)):
     ingredients[i] = ingredients[i].replace('fat free','fat-free')
-    tokens = preprocess(ingredients[i])
+    tokens = preprocess(ingredients[i].lower())
     for token in tokens:
       if '®' in token[0]:
         continue
@@ -537,6 +538,21 @@ def get_recipie_from_URL(URL):
         index  = re.search('all other ingredients except|all ingredients except',direction_lower).start()
         if check_ingredient(Ingredients[i].main_ingredients,direction_lower[index:]) or check_ingredient(Ingredients[i].main_ingredients.replace(" ", ""),direction_lower[index:]):
             step_indexes.remove(j)
+      
+      elif 'vegetables' in direction_lower.split() in direction_lower and len(step_indexes)==0 and Ingredients.ingredient_type=='Vegetable':
+        step_indexes.append(j) 
+      
+      elif 'fruits' in direction_lower.split() and len(step_indexes)==0 and Ingredients.ingredient_type=='Fruit':
+        step_indexes.append(j)  
+      
+      elif 'grains' in direction_lower.split() and len(step_indexes)==0 and Ingredients.ingredient_type=='Grain':
+        step_indexes.append(j) 
+      
+      elif 'nuts' in direction_lower.split() and len(step_indexes)==0 and Ingredients.ingredient_type=='Nut':
+        step_indexes.append(j)
+        
+      elif 'spices' in direction_lower.split() and len(step_indexes)==0 and Ingredients.ingredient_type=='Spice/Condiment':
+        step_indexes.append(j)
         
       elif check_ingredient(Ingredients[i].main_ingredients,direction_lower) or check_ingredient(Ingredients[i].main_ingredients.replace(" ", ""),direction_lower):
         step_indexes.append(j)
@@ -755,16 +771,19 @@ while (True):
         break
     
     elif choice==1:
-        #print('Will you give a url, or shall I just take any random recipe?')
-        #print('Press 1 to enter url or 2 to randomly select')
-        #url_choice = int(input())
-        url_choice = 1
+        print('Will you give a url, or shall I just take any random recipe?')
+        print('Press 1 to enter url or 2 to randomly select')
+        url_choice = int(input())
+        #url_choice = 1
         if url_choice == 1:
             print('Press enter url: ',end='')
             input_url = input()
             input_url = input_url.strip()
-            myRecipie = get_recipie_from_URL(input_url)
-            myRecipie.print_recipie()
+            try:
+                myRecipie = get_recipie_from_URL(input_url)
+                myRecipie.print_recipie()
+            except:
+                print('Connection error please try again')
         elif url_choice == 2:
             random_URL ="http://allrecipes.com/recipe/" + str(random.randint(6660, 27000))
             myRecipie = get_recipie_from_URL(random_URL)
